@@ -19,7 +19,8 @@ provider "proxmox" {
   }
 }
 
+# test directory
 resource "proxmox_virtual_environment_pool" "k8s" {
-  pool_id = "k8s"
+  pool_id = "k8s-cluster"
   comment = "Kubernetes cluster VMs -- managed by Terraform, do not hand-edit"
 }
