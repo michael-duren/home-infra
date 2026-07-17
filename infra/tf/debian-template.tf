@@ -20,7 +20,7 @@ resource "proxmox_virtual_environment_vm" "k8s_cp_1" {
   }
 
   agent {
-    enabled = false # see the gotcha below — Ansible flips this later
+    enabled = true # see the gotcha below — Ansible flips this later
   }
 
   initialization {

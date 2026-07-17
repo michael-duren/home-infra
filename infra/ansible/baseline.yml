@@ -1,0 +1,22 @@
+- name: Baseline for all cluster VMs
+  hosts: k8s
+  # use sudo
+  become: true
+  tasks:
+    - name: Install base packages
+      ansible.builtin.apt:
+        name:
+          - qemu-guest-agent
+          - curl
+          - vim
+        update_cache: true
+
+    - name: Enable and start the guest agent
+      ansible.builtin.systemd_service:
+        name: qemu-guest-agent
+        state: started
+        enabled: true
+
+    - name: Upgrade everything
+      ansible.builtin.apt:
+        upgrade: dist
