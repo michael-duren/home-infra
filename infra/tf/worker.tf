@@ -10,3 +10,10 @@ module "debian_template_worker" {
     proxmox = proxmox.worker
   }
 }
+
+locals {
+  workers = {
+    "k8s-w-1" = { vm_id = 210, ip = "192.168.20.101" }
+    "k8s-w-2" = { vm_id = 211, ip = "192.168.20.102" }
+  }
+}
