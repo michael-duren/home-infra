@@ -1,12 +1,28 @@
+# Proxmox node 1 (pve-main, 192.168.20.2) -- services + k8s control plane.
+# Uses the default provider.
+
+module "debian_template_control" {
+  source    = "./modules/debian-template"
+  node_name = var.control_node_name
+
+  providers = {
+    proxmox = proxmox
+  }
+}
+
+resource "proxmox_virtual_environment_pool" "k8s" {
+  pool_id = "k8s-cluster"
+  comment = "Kubernetes cluster VMs -- managed by Terraform, do not hand-edit"
+}
+
 resource "proxmox_virtual_environment_vm" "k8s_cp_1" {
-  name = "k8s-cp-1"
-  # your node name from the installer
-  node_name = "touchgrass"
+  name      = "k8s-cp-1"
+  node_name = var.control_node_name
   vm_id     = 200
   pool_id   = proxmox_virtual_environment_pool.k8s.pool_id
 
   clone {
-    vm_id = 9000
+    vm_id = module.debian_template_control.vm_id
     full  = true
   }
 
