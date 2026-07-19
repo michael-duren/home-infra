@@ -19,7 +19,7 @@ resource "proxmox_virtual_environment_vm" "k8s_cp_1" {
   name      = "k8s-cp-1"
   node_name = var.control_node_name
   vm_id     = 200
-  pool_id   = proxmox_virtual_environment_pool.k8s-control.pool_id
+  pool_id   = proxmox_virtual_environment_pool.k8-control.pool_id
 
   clone {
     vm_id = module.debian_template_control.vm_id
