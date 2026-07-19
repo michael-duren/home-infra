@@ -222,3 +222,4 @@ extra/
 *.tfvars
 .terraform/
 terraform.tfstate*
+kubeconfig*

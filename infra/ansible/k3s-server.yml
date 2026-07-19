@@ -1,0 +1,21 @@
+- name: Install k3s server (control plane)
+  hosts: k8s_control
+  become: true
+  tasks:
+    - name: Download k3s installer
+      ansible.builtin.get_url:
+        url: https://get.k3s.io/
+        dest: /root/k3s-install.sh
+        mode: "0755"
+
+    - name: Run the installer in server mode
+      ansible.builtin.command: /root/k3s-install.sh
+      args:
+        creates: /etc/systemd/system/k3s.service
+
+    # copy kubeconfig locally
+    - name: Fetch the kubeconfig to the workstation
+      ansible.builtin.fetch:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: kubeconfig-homelab
+        flat: true

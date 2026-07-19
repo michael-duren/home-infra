@@ -48,7 +48,7 @@ resource "proxmox_virtual_environment_vm" "worker" {
   }
 
   agent {
-    enabled = false
+    enabled = true
   }
 
   initialization {
