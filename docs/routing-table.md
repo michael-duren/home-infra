@@ -11,3 +11,4 @@ Host IP Role
 | pve-worker    | 192.168.20.100 | Proxmox node 2                    |
 | k8s-w-1       | 192.168.20.101 | Proxmox node 2 — worker VM 1      |
 | k8s-w-2       | 192.168.20.102 | Proxmox node 2 — worker VM 2      |
+| pgdb          | 192.168.20.103 | Proxmox node 3 — pg db            |

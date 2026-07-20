@@ -21,3 +21,9 @@ variable "worker_node_name" {
   type        = string
   default     = "touchgrassworkers"
 }
+
+variable "dbname" {
+  description = "Postgres DB Name"
+  type        = string
+  default     = "pgdb"
+}

@@ -38,6 +38,15 @@ resource "proxmox_virtual_environment_vm" "worker" {
     full  = true
   }
 
+  # full clones get their own resizable disk (the template's base disk can't be
+  # resized in place); size it up here for k3s images + container storage
+  disk {
+    datastore_id = "local-lvm"
+    interface    = "virtio0"
+    discard      = "on"
+    size         = 40
+  }
+
   cpu {
     cores = 4
     type  = "host"
@@ -48,10 +57,12 @@ resource "proxmox_virtual_environment_vm" "worker" {
   }
 
   agent {
-    enabled = true
+    enabled = true # agent device is attached; the playbooks install the guest package
   }
 
   initialization {
+    vendor_data_file_id = module.debian_template_worker.vendor_data_file_id
+
     ip_config {
       ipv4 {
         address = "${each.value.ip}/24"

@@ -1,0 +1,78 @@
+- name: Postgres 17 for the Duck app
+  hosts: db
+  become: true
+  vars:
+    duck_db_name: duckserver
+    duck_db_user: duckserver
+    # pass at runtime: --extra-vars "duck_db_password=..."  (or vault it)
+  tasks:
+    - name: Base packages + guest agent
+      ansible.builtin.apt:
+        name:
+          [
+            qemu-guest-agent,
+            curl,
+            vim,
+            ca-certificates,
+            gnupg,
+            python3-psycopg2,
+            # ansible needs setfacl to hand temp files to an unprivileged
+            # become_user (the postgres tasks below)
+            acl,
+          ]
+        update_cache: true
+
+    - name: Enable guest agent
+      ansible.builtin.systemd_service:
+        name: qemu-guest-agent
+        state: started
+        enabled: true
+
+    - name: Add PGDG apt key
+      ansible.builtin.get_url:
+        url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+        dest: /usr/share/keyrings/pgdg.asc
+        mode: "0644"
+
+    - name: Add PGDG repo
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/pgdg.asc] http://apt.postgresql.org/pub/repos/apt bookworm-pgdg main"
+        filename: pgdg
+
+    - name: Install Postgres 17
+      ansible.builtin.apt:
+        name: postgresql-17
+        update_cache: true
+
+    - name: Listen on all interfaces
+      ansible.builtin.lineinfile:
+        path: /etc/postgresql/17/main/postgresql.conf
+        regexp: "^#?listen_addresses"
+        line: "listen_addresses = '*'"
+      notify: restart postgres
+
+    # SNAT means app pods arrive as the node IP — trust the server subnet,
+    # NOT the pod CIDR. scram-sha-256 is PG17's default.
+    - name: Allow the cluster subnet
+      ansible.builtin.lineinfile:
+        path: /etc/postgresql/17/main/pg_hba.conf
+        line: "host  {{ duck_db_name }}  {{ duck_db_user }}  192.168.20.0/24  scram-sha-256"
+      notify: restart postgres
+
+    - name: Create role
+      become_user: postgres
+      community.postgresql.postgresql_user:
+        name: "{{ duck_db_user }}"
+        password: "{{ duck_db_password }}"
+
+    - name: Create database
+      become_user: postgres
+      community.postgresql.postgresql_db:
+        name: "{{ duck_db_name }}"
+        owner: "{{ duck_db_user }}"
+
+  handlers:
+    - name: restart postgres
+      ansible.builtin.systemd_service:
+        name: postgresql
+        state: restarted

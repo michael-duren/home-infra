@@ -26,6 +26,15 @@ resource "proxmox_virtual_environment_vm" "k8s_cp_1" {
     full  = true
   }
 
+  # full clones get their own resizable disk (the template's base disk can't be
+  # resized in place); size it up here for k3s images + container storage
+  disk {
+    datastore_id = "local-lvm"
+    interface    = "virtio0"
+    discard      = "on"
+    size         = 40
+  }
+
   cpu {
     cores = 2
     type  = "host"
@@ -36,10 +45,12 @@ resource "proxmox_virtual_environment_vm" "k8s_cp_1" {
   }
 
   agent {
-    enabled = true # see the gotcha below — Ansible flips this later
+    enabled = true # agent device is attached; baseline.yml installs the guest package
   }
 
   initialization {
+    vendor_data_file_id = module.debian_template_control.vendor_data_file_id
+
     ip_config {
       ipv4 {
         address = "192.168.20.3/24"
