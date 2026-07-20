@@ -12,6 +12,8 @@
             vim,
             ca-certificates,
             gnupg,
+            # required on the target by the deb822_repository module
+            python3-debian,
             # userspace tools for the exfat media partition (kernel driver is built in)
             exfatprogs,
           ]
@@ -24,9 +26,20 @@
         mode: "0644"
 
     - name: Add Jellyfin repo
-      ansible.builtin.apt_repository:
-        repo: "deb [signed-by=/usr/share/keyrings/jellyfin.asc] https://repo.jellyfin.org/debian bookworm main"
-        filename: jellyfin
+      ansible.builtin.deb822_repository:
+        name: jellyfin
+        types: deb
+        uris: https://repo.jellyfin.org/debian
+        suites: bookworm
+        components: main
+        signed_by: /usr/share/keyrings/jellyfin.asc
+
+    # earlier runs used apt_repository, which wrote a one-line .list file;
+    # leaving it in place would duplicate the repo entry
+    - name: Remove legacy jellyfin.list
+      ansible.builtin.file:
+        path: /etc/apt/sources.list.d/jellyfin.list
+        state: absent
 
     - name: Install Jellyfin
       ansible.builtin.apt:
@@ -48,7 +61,7 @@
         src: LABEL=CloudOne
         path: "{{ media_mount }}"
         fstype: exfat
-        opts: "uid={{ getent_passwd.jellyfin[1] }},gid={{ getent_passwd.jellyfin[2] }},dmask=022,fmask=133,nofail"
+        opts: "uid={{ ansible_facts.getent_passwd.jellyfin[1] }},gid={{ ansible_facts.getent_passwd.jellyfin[2] }},dmask=022,fmask=133,nofail"
         state: mounted
 
     - name: Media library folders
