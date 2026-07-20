@@ -27,3 +27,15 @@ variable "dbname" {
   type        = string
   default     = "pgdb"
 }
+
+variable "proxmox_root_password" {
+  description = "root@pam password for pve-main -- needed only for host disk passthrough, which Proxmox refuses for token auth"
+  type        = string
+  sensitive   = true
+}
+
+variable "media_disk_path" {
+  description = "Stable by-id path of the external media drive on pve-main, passed whole to the jellyfin VM"
+  type        = string
+  default     = "/dev/disk/by-id/usb-Samsung_PSSD_T7_Touch_S5KENJ0N600335M-0:0"
+}

@@ -1,0 +1,67 @@
+- name: Jellyfin media server
+  hosts: media
+  become: true
+  vars:
+    media_mount: /srv/media
+  tasks:
+    - name: Base packages
+      ansible.builtin.apt:
+        name:
+          [
+            curl,
+            vim,
+            ca-certificates,
+            gnupg,
+            # userspace tools for the exfat media partition (kernel driver is built in)
+            exfatprogs,
+          ]
+        update_cache: true
+
+    - name: Add Jellyfin apt key
+      ansible.builtin.get_url:
+        url: https://repo.jellyfin.org/jellyfin_team.gpg.key
+        dest: /usr/share/keyrings/jellyfin.asc
+        mode: "0644"
+
+    - name: Add Jellyfin repo
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/jellyfin.asc] https://repo.jellyfin.org/debian bookworm main"
+        filename: jellyfin
+
+    - name: Install Jellyfin
+      ansible.builtin.apt:
+        name: jellyfin
+        update_cache: true
+
+    - name: Look up the jellyfin user
+      ansible.builtin.getent:
+        database: passwd
+        key: jellyfin
+
+    # The T7 is passed through whole as virtio1; the media partition is the
+    # exfat one labeled CloudOne (photos live there too -- do NOT reformat).
+    # exfat has no unix permissions, so ownership is faked at mount time to
+    # give the jellyfin service rw access. nofail: don't hang boot if the
+    # drive is unplugged from the host.
+    - name: Mount the media partition
+      ansible.posix.mount:
+        src: LABEL=CloudOne
+        path: "{{ media_mount }}"
+        fstype: exfat
+        opts: "uid={{ getent_passwd.jellyfin[1] }},gid={{ getent_passwd.jellyfin[2] }},dmask=022,fmask=133,nofail"
+        state: mounted
+
+    - name: Media library folders
+      ansible.builtin.file:
+        path: "{{ media_mount }}/{{ item }}"
+        state: directory
+      loop:
+        - movies
+        - shows
+        - music
+
+    - name: Enable and start Jellyfin
+      ansible.builtin.systemd_service:
+        name: jellyfin
+        state: started
+        enabled: true

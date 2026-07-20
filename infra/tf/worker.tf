@@ -24,55 +24,31 @@ resource "proxmox_virtual_environment_pool" "k8-workers" {
   comment  = "Kubernetes cluster worker VMs -- managed by Terraform, do not hand-edit"
 }
 
-resource "proxmox_virtual_environment_vm" "worker" {
+module "worker" {
+  source   = "./modules/debian-vm"
   for_each = local.workers
 
-  provider  = proxmox.worker
-  name      = each.key
-  node_name = var.worker_node_name
-  vm_id     = each.value.vm_id
-  pool_id   = proxmox_virtual_environment_pool.k8-workers.pool_id
+  name                = each.key
+  node_name           = var.worker_node_name
+  vm_id               = each.value.vm_id
+  pool_id             = proxmox_virtual_environment_pool.k8-workers.pool_id
+  template_vm_id      = module.debian_template_worker.vm_id
+  vendor_data_file_id = module.debian_template_worker.vendor_data_file_id
+  ip                  = each.value.ip
+  cores               = 4
+  memory              = 8192
 
-  clone {
-    vm_id = module.debian_template_worker.vm_id
-    full  = true
+  providers = {
+    proxmox = proxmox.worker
   }
+}
 
-  # full clones get their own resizable disk (the template's base disk can't be
-  # resized in place); size it up here for k3s images + container storage
-  disk {
-    datastore_id = "local-lvm"
-    interface    = "virtio0"
-    discard      = "on"
-    size         = 40
-  }
+moved {
+  from = proxmox_virtual_environment_vm.worker["k8s-w-1"]
+  to   = module.worker["k8s-w-1"].proxmox_virtual_environment_vm.this
+}
 
-  cpu {
-    cores = 4
-    type  = "host"
-  }
-
-  memory {
-    dedicated = 8192
-  }
-
-  agent {
-    enabled = true # agent device is attached; the playbooks install the guest package
-  }
-
-  initialization {
-    vendor_data_file_id = module.debian_template_worker.vendor_data_file_id
-
-    ip_config {
-      ipv4 {
-        address = "${each.value.ip}/24"
-        gateway = "192.168.20.1"
-      }
-    }
-
-    user_account {
-      username = "ops"
-      keys     = [trimspace(file("~/.ssh/id_ed25519.pub"))]
-    }
-  }
+moved {
+  from = proxmox_virtual_environment_vm.worker["k8s-w-2"]
+  to   = module.worker["k8s-w-2"].proxmox_virtual_environment_vm.this
 }

@@ -22,6 +22,25 @@ provider "proxmox" {
   }
 }
 
+# root provider: pve-main authenticated as root@pam with a password instead of
+# a token. Proxmox refuses host block-device passthrough ("Only root can pass
+# arbitrary filesystem paths") for ALL token auth -- only VMs that need a
+# passthrough disk (jellyfin + the media drive) should use this alias.
+provider "proxmox" {
+  alias    = "root"
+  endpoint = "https://192.168.20.2:8006/"
+  username = "root@pam"
+  password = var.proxmox_root_password
+  insecure = true
+
+  ssh {
+    # read the key directly -- the provider can't use ~/.ssh config or key
+    # files on its own, and we don't run an ssh-agent
+    private_key = file("~/.ssh/id_ed25519")
+    username    = "root"
+  }
+}
+
 // worker provider: worker nodes
 provider "proxmox" {
   alias     = "worker"

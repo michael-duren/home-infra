@@ -6,3 +6,5 @@ base:
 	ansible-playbook -i inventory.ini baseline.yml
 k3-server:
 	ansible-playbook -i inventory.ini k3s-server.yml
+jellyfin:
+	ansible-playbook -i inventory.ini jellyfin.yml

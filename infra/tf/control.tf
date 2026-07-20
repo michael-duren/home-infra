@@ -15,52 +15,51 @@ resource "proxmox_virtual_environment_pool" "k8-control" {
   comment = "Kubernetes cluster control VMs -- managed by Terraform, do not hand-edit"
 }
 
-resource "proxmox_virtual_environment_vm" "k8s_cp_1" {
-  name      = "k8s-cp-1"
-  node_name = var.control_node_name
-  vm_id     = 200
-  pool_id   = proxmox_virtual_environment_pool.k8-control.pool_id
+module "k8s_cp_1" {
+  source = "./modules/debian-vm"
 
-  clone {
-    vm_id = module.debian_template_control.vm_id
-    full  = true
+  name                = "k8s-cp-1"
+  node_name           = var.control_node_name
+  vm_id               = 200
+  pool_id             = proxmox_virtual_environment_pool.k8-control.pool_id
+  template_vm_id      = module.debian_template_control.vm_id
+  vendor_data_file_id = module.debian_template_control.vendor_data_file_id
+  ip                  = "192.168.20.3"
+  cores               = 2
+  memory              = 4096
+
+  providers = {
+    proxmox = proxmox
   }
+}
 
-  # full clones get their own resizable disk (the template's base disk can't be
-  # resized in place); size it up here for k3s images + container storage
-  disk {
-    datastore_id = "local-lvm"
-    interface    = "virtio0"
-    discard      = "on"
-    size         = 40
-  }
+moved {
+  from = proxmox_virtual_environment_vm.k8s_cp_1
+  to   = module.k8s_cp_1.proxmox_virtual_environment_vm.this
+}
 
-  cpu {
-    cores = 2
-    type  = "host"
-  }
+resource "proxmox_virtual_environment_pool" "media" {
+  pool_id = "media"
+  comment = "Media server VMs -- managed by Terraform, do not hand-edit"
+}
 
-  memory {
-    dedicated = 4096
-  }
+module "jellyfin" {
+  source = "./modules/debian-vm"
 
-  agent {
-    enabled = true # agent device is attached; baseline.yml installs the guest package
-  }
+  name                = "jellyfin"
+  node_name           = var.control_node_name
+  vm_id               = 201
+  pool_id             = proxmox_virtual_environment_pool.media.pool_id
+  template_vm_id      = module.debian_template_control.vm_id
+  vendor_data_file_id = module.debian_template_control.vendor_data_file_id
+  ip                  = "192.168.20.4"
+  cores               = 4
+  memory              = 8192
+  passthrough_disks   = [var.media_disk_path]
 
-  initialization {
-    vendor_data_file_id = module.debian_template_control.vendor_data_file_id
-
-    ip_config {
-      ipv4 {
-        address = "192.168.20.3/24"
-        gateway = "192.168.20.1"
-      }
-    }
-
-    user_account {
-      username = "ops"
-      keys     = [trimspace(file("~/.ssh/id_ed25519.pub"))]
-    }
+  # root alias: host disk passthrough is refused for token-authenticated API
+  # calls, see main.tf
+  providers = {
+    proxmox = proxmox.root
   }
 }
