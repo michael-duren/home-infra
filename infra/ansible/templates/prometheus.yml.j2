@@ -1,0 +1,48 @@
+# {{ ansible_managed }}
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # kubelet metrics, scraped directly on each node. The kubelet serves a
+  # self-signed cert and authorizes scrapes via a TokenReview against the
+  # API server -- the token comes from the prometheus ServiceAccount
+  # (manifests/prometheus-scrape-rbac.yml).
+  - job_name: kubelet
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true
+    authorization:
+      credentials_file: /etc/prometheus/k3s-token
+    static_configs:
+{% for host in groups['k8s'] %}
+      - targets: ["{{ hostvars[host].ansible_host }}:10250"]
+        labels:
+          node: {{ host }}
+{% endfor %}
+
+  # per-container cpu/mem/net, served by the kubelet's embedded cAdvisor
+  - job_name: cadvisor
+    scheme: https
+    metrics_path: /metrics/cadvisor
+    tls_config:
+      insecure_skip_verify: true
+    authorization:
+      credentials_file: /etc/prometheus/k3s-token
+    static_configs:
+{% for host in groups['k8s'] %}
+      - targets: ["{{ hostvars[host].ansible_host }}:10250"]
+        labels:
+          node: {{ host }}
+{% endfor %}
+
+  # cluster-object state (deployments, pods, etc.) via kube-state-metrics,
+  # exposed as a NodePort (manifests/kube-state-metrics.yml). One target only:
+  # NodePort answers on every node, and scraping them all would just duplicate
+  # the same series under different instance labels.
+  - job_name: kube-state-metrics
+    static_configs:
+      - targets: ["{{ hostvars[groups['k8s_control'][0]].ansible_host }}:30080"]

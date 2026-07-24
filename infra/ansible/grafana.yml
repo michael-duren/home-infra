@@ -1,0 +1,49 @@
+- name: Grafana for k3s observability
+  hosts: grafana
+  become: true
+  tasks:
+    - name: Base packages + guest agent
+      ansible.builtin.apt:
+        name:
+          [
+            qemu-guest-agent,
+            curl,
+            vim,
+            ca-certificates,
+            gnupg,
+            # required on the target by the deb822_repository module
+            python3-debian,
+          ]
+        update_cache: true
+
+    - name: Enable guest agent
+      ansible.builtin.systemd_service:
+        name: qemu-guest-agent
+        state: started
+        enabled: true
+
+    - name: Add Grafana apt key
+      ansible.builtin.get_url:
+        url: https://apt.grafana.com/gpg.key
+        dest: /usr/share/keyrings/grafana.asc
+        mode: "0644"
+
+    - name: Add Grafana repo
+      ansible.builtin.deb822_repository:
+        name: grafana
+        types: deb
+        uris: https://apt.grafana.com
+        suites: stable
+        components: main
+        signed_by: /usr/share/keyrings/grafana.asc
+
+    - name: Install Grafana
+      ansible.builtin.apt:
+        name: grafana
+        update_cache: true
+
+    - name: Enable and start Grafana
+      ansible.builtin.systemd_service:
+        name: grafana-server
+        state: started
+        enabled: true
